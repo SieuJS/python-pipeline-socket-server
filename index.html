@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Cell to Header Mapper</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>CSV Cell to Header Mapper</h1>
+    <input type="file" id="file-input" accept=".csv"><br><br>
+
+    <div id="cell-mapper" style="display:none;">
+        <h2>Map Cells to Headers (Body Row Mapping)</h2>
+        <table id="cell-mapping-table"></table>
+        <button id="process-btn">Process Data</button>
+    </div>
+
+    <div id="csv-output" style="display:none;">
+        <h2>Formatted CSV Output</h2>
+        <pre id="formatted-csv"></pre>
+        <button id="download-btn">Download CSV</button>
+    </div>
+
+    <script>
+        let formattedData = '';
+        let headerCells = [];
+        let sampleBodyRow = [];
+        let mapping = {}; // Object to store user-selected header-cell mappings
+
+        // Function to read and parse CSV file
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const rawText = e.target.result;
+                    const lines = rawText.trim().split('\n');
+                    
+                    // Display the sample row and headers for mapping
+                    displaySampleRow(lines[0], lines.slice(1));
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        // Function to display sample body row and ask for mapping
+        function displaySampleRow(headerLine, bodyLines) {
+            const cellMapperDiv = document.getElementById('cell-mapper');
+            const cellMappingTable = document.getElementById('cell-mapping-table');
+            cellMapperDiv.style.display = 'block';
+
+            const headers = headerLine.split(';').map(h => h.trim());  // Header cells split by semicolons
+            headerCells = headers;
+
+            // Extract one row from the body to display as an example
+            const firstBodyRow = bodyLines[0].split('\t');  // Assuming the body cells are separated by tabs
+            sampleBodyRow = firstBodyRow;
+
+            let tableHtml = '<tr><th>Body Cell</th><th>Select Matching Header</th></tr>';
+            sampleBodyRow.forEach((cell, index) => {
+                tableHtml += `
+                    <tr>
+                        <td>${cell}</td>
+                        <td>
+                            <select id="header-${index}">
+                                ${headerCells.map(header => `<option value="${header}">${header}</option>`).join('')}
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            cellMappingTable.innerHTML = tableHtml;
+
+            // Attach event listener for process button
+            document.getElementById('process-btn').onclick = () => processData(bodyLines);
+        }
+
+        // Function to process the CSV data based on user-defined header mapping
+        function processData(bodyLines) {
+            const mappedHeaders = sampleBodyRow.map((_, index) => document.getElementById(`header-${index}`).value);
+
+            // Prepare rows with mapped headers
+            const processedRows = bodyLines.map(row => {
+                const cells = row.split('\t');  // Assuming body cells are separated by tabs
+                const mappedRow = mappedHeaders.map((header, index) => `${header}: ${cells[index]}`);
+                return mappedRow.join(',');
+            });
+
+            // Prepare the full CSV content
+            formattedData = mappedHeaders.join(',') + '\n' + processedRows.join('\n');
+
+            // Display the formatted CSV output
+            document.getElementById('csv-output').style.display = 'block';
+            document.getElementById('formatted-csv').textContent = formattedData;
+        }
+
+        // Function to download the formatted CSV
+        function downloadCSV(csv, filename) {
+            const csvFile = new Blob([csv], { type: 'text/csv' });
+            const downloadLink = document.createElement('a');
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.download = filename;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+
+        // Event listener for file input change
+        document.getElementById('file-input').addEventListener('change', handleFileUpload);
+
+        // Event listener for download button
+        document.getElementById('download-btn').addEventListener('click', () => {
+            downloadCSV(formattedData, 'formatted_output.csv');
+        });
+
+    </script>
+
+</body>
+</html>
